@@ -107,13 +107,23 @@ def help_user(message):
 
 # to do part
 
+def pg_open():
+    conn = psycopg2.connect(dbname=pg_dbname, user=pg_user, password=pg_password, host=host_pg)
+    cursor = conn.cursor()
+    conn.autocommit = True
+    return conn, cursor
+
+
+def pg_close(conn, cursor):
+    cursor.close()
+    conn.close()
+
+
 @bot.message_handler(commands=['create'])
 def create_todo(message):
     if users.count_documents({'tele_id': message.from_user.id}) > 0:
+        conn, cursor = pg_open()
         try:
-            conn = psycopg2.connect(dbname=pg_dbname, user=pg_user, password=pg_password, host=host_pg)
-            cursor = conn.cursor()
-            conn.autocommit = True
             cursor.execute(f"""SELECT COUNT(tele_id) FROM list WHERE tele_id = {message.from_user.id};""")
             count = cursor.fetchone()
             if count[0] == 0:
@@ -129,8 +139,7 @@ def create_todo(message):
             print('Ошибка в postgres', error)
         finally:
             if conn:
-                cursor.close()
-                conn.close()
+                pg_close(conn, cursor)
     else:
         bot.send_message(message.chat.id, 'Необходимо зарегистрироваться')
 
@@ -138,13 +147,10 @@ def create_todo(message):
 @bot.message_handler(commands=['todo'])
 def todo_list(message):
     if users.count_documents({'tele_id': message.from_user.id}) > 0:
+        conn, cursor = pg_open()
         try:
-            conn = psycopg2.connect(dbname=pg_dbname, user=pg_user, password=pg_password, host=host_pg)
-            cursor = conn.cursor()
-            conn.autocommit = True
             cursor.execute(f"""SELECT COUNT(tele_id) FROM list WHERE tele_id = {message.from_user.id};""")
             count = cursor.fetchone()
-            # print(count)
             if count[0] == 1:
                 cursor.execute(
                     f"""SELECT todo_list FROM list WHERE tele_id = {message.from_user.id};"""
@@ -158,8 +164,7 @@ def todo_list(message):
             print('Ошибка в postgres', error)
         finally:
             if conn:
-                cursor.close()
-                conn.close()
+                pg_close(conn, cursor)
     else:
         bot.send_message(message.chat.id, 'Необходимо зарегистрироваться')
 
@@ -167,10 +172,8 @@ def todo_list(message):
 @bot.message_handler(commands=['update'])
 def update_todo(message):
     if users.count_documents({'tele_id': message.from_user.id}) > 0:
+        conn, cursor = pg_open()
         try:
-            conn = psycopg2.connect(dbname=pg_dbname, user=pg_user, password=pg_password, host=host_pg)
-            cursor = conn.cursor()
-            conn.autocommit = True
             cursor.execute(f"""SELECT COUNT(tele_id) FROM list WHERE tele_id = {message.from_user.id};""")
             count = cursor.fetchone()
             if count[0] == 1:
@@ -182,17 +185,14 @@ def update_todo(message):
             print('Ошибка в postgres', error)
         finally:
             if conn:
-                cursor.close()
-                conn.close()
+                pg_close(conn, cursor)
     else:
         bot.send_message(message.chat.id, 'Необходимо зарегистрироваться')
 
 
 def updating_todo(message):
+    conn, cursor = pg_open()
     try:
-        conn = psycopg2.connect(dbname=pg_dbname, user=pg_user, password=pg_password, host=host_pg)
-        cursor = conn.cursor()
-        conn.autocommit = True
         cursor.execute(f"""SELECT todo_list FROM list WHERE tele_id = {message.from_user.id};""")
         old_list = cursor.fetchone()
         new_list = old_list[0]
@@ -203,17 +203,14 @@ def updating_todo(message):
         print('Ошибка в postgres', error)
     finally:
         if conn:
-            cursor.close()
-            conn.close()
+            pg_close(conn, cursor)
 
 
 @bot.message_handler(commands=['delete'])
 def delete_todo(message):
     if users.count_documents({'tele_id': message.from_user.id}) > 0:
+        conn, cursor = pg_open()
         try:
-            conn = psycopg2.connect(dbname=pg_dbname, user=pg_user, password=pg_password, host=host_pg)
-            cursor = conn.cursor()
-            conn.autocommit = True
             cursor.execute(f"""SELECT COUNT(tele_id) FROM list WHERE tele_id = {message.from_user.id};""")
             count = cursor.fetchone()
             if count[0] == 1:
@@ -225,8 +222,7 @@ def delete_todo(message):
             print('Ошибка в postgres', error)
         finally:
             if conn:
-                cursor.close()
-                conn.close()
+                pg_close(conn, cursor)
     else:
         bot.send_message(message.chat.id, 'Необходимо зарегистрироваться')
 
@@ -234,10 +230,8 @@ def delete_todo(message):
 @bot.message_handler(commands=['remove'])
 def remove_todo(message):
     if users.count_documents({'tele_id': message.from_user.id}) > 0:
+        conn, cursor = pg_open()
         try:
-            conn = psycopg2.connect(dbname=pg_dbname, user=pg_user, password=pg_password, host=host_pg)
-            cursor = conn.cursor()
-            conn.autocommit = True
             cursor.execute(f"""SELECT COUNT(tele_id) FROM list WHERE tele_id = {message.from_user.id};""")
             count = cursor.fetchone()
             if count[0] == 1:
@@ -254,17 +248,14 @@ def remove_todo(message):
             print('Ошибка в postgres', error)
         finally:
             if conn:
-                cursor.close()
-                conn.close()
+                pg_close(conn, cursor)
     else:
         bot.send_message(message.chat.id, 'Необходимо зарегистрироваться')
 
 
 def removing_todo(message):
+    conn, cursor = pg_open()
     try:
-        conn = psycopg2.connect(dbname=pg_dbname, user=pg_user, password=pg_password, host=host_pg)
-        cursor = conn.cursor()
-        conn.autocommit = True
         cursor.execute(f"""SELECT todo_list FROM list WHERE tele_id = {message.from_user.id};""")
         old_list = cursor.fetchone()
         new_list = old_list[0]
@@ -278,8 +269,7 @@ def removing_todo(message):
         print('Ошибка в postgres', error)
     finally:
         if conn:
-            cursor.close()
-            conn.close()
+            pg_close(conn, cursor)
 
 # end of to do part
 
