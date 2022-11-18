@@ -1,7 +1,7 @@
 import telebot
 # from telebot import types
 
-from config import token_secret, password, superuser_password, host_mongo, host_pg, pg_user, pg_password, pg_dbname
+from config import token_secret, password, superuser_password, host_mongo, pg_host, pg_user, pg_password, pg_dbname
 from config import mongo_name
 from pymongo import MongoClient
 import psycopg2
@@ -15,14 +15,14 @@ bot = telebot.TeleBot(token_secret)
 db = client[mongo_name]
 
 users = db['users']
-superusers = []
+superusers = db['superusers']
 
 
 # login part
 
 @bot.message_handler(commands=['start'])
 def start(message):
-    bot.send_message(message.chat.id, f'Привет, {message.from_user.first_name} используйте команду /help')
+    bot.send_message(message.chat.id, f'Привет, {message.from_user.first_name} это закрытый бот')
 
 
 @bot.message_handler(commands=['login'])
@@ -31,18 +31,17 @@ def login(message):
         bot.send_message(message.chat.id, 'Вы уже зарегистрированы')
     else:
         sent = bot.send_message(message.chat.id, 'Введите пароль')
-        bot.register_next_step_handler(sent, log_in)
+        bot.register_next_step_handler(sent, login2)
 
 
-def log_in(message):
+def login2(message):
     if message.text == password:
         user = {
             'name': message.from_user.first_name,
-            # 'last_name': message.from_user.last_name,
             'tele_id': message.from_user.id,
         }
         users.insert_one(user)
-        bot.send_message(message.chat.id, 'Пароль верный, теперь вам доступно больше команд')
+        bot.send_message(message.chat.id, 'Пароль верный, используйте команду /help')
     elif message.text != password:
         bot.send_message(message.chat.id, 'Неверный пароль, попробовать еще раз - /login')
 
@@ -51,6 +50,7 @@ def log_in(message):
 def log_out(message):
     if users.count_documents({'tele_id': message.from_user.id}) > 0:
         users.delete_one({'tele_id': message.from_user.id})
+        bot.send_message(message.chat.id, 'Выполнено')
     else:
         bot.send_message(message.chat.id, 'Вы не зарегистрированы')
 
@@ -61,7 +61,7 @@ def log_out(message):
 
 @bot.message_handler(commands=['admin'])
 def admin1(message):
-    if message.from_user.id in superusers:
+    if superusers.count_documents({'tele_id': message.from_user.id}) > 0:
         bot.send_message(message.chat.id, 'Вы уже получили статус админ')
     else:
         sent = bot.send_message(message.chat.id, 'Введите пароль')
@@ -70,7 +70,11 @@ def admin1(message):
 
 def admin2(message):
     if message.text == superuser_password:
-        superusers.append(message.from_user.id)
+        superuser = {
+            'name': message.from_user.first_name,
+            'tele_id': message.from_user.id,
+        }
+        superusers.insert_one(superuser)
         bot.send_message(message.chat.id, 'Вы получили статус админ')
     elif message.text != superuser_password:
         bot.send_message(message.chat.id, 'Неверный пароль')
@@ -78,11 +82,42 @@ def admin2(message):
 
 @bot.message_handler(commands=['eye'])
 def eye(message):
-    if message.from_user.id in superusers:
+    if superusers.count_documents({'tele_id': message.from_user.id}) > 0:
         for user in users.find({}, {'_id': 0}):
             bot.send_message(message.chat.id, f'{user}')
     else:
-        bot.send_message(message.chat.id, 'нельзя')
+        bot.send_message(message.chat.id, 'Нельзя')
+
+
+@bot.message_handler(commands=['check'])
+def checking(message):
+    if superusers.count_documents({'tele_id': message.from_user.id}) > 0:
+        for superuser in superusers.find({}, {'_id': 0}):
+            bot.send_message(message.chat.id, f'{superuser}')
+    else:
+        bot.send_message(message.chat.id, 'Нельзя')
+
+
+@bot.message_handler(commands=['ghost'])
+def ghost1(message):
+    if superusers.count_documents({'tele_id': message.from_user.id}) > 0:
+        sent = bot.send_message(message.chat.id, 'Укажите id')
+        bot.register_next_step_handler(sent, ghost2)
+    else:
+        bot.send_message(message.chat.id, 'Нельзя')
+
+
+def ghost2(message):
+    if users.count_documents({'tele_id': int(message.text)}) > 0:
+        sent = bot.send_message(message.chat.id, 'Что отправить указанному пользователю')
+        bot.register_next_step_handler(sent, ghost3, some=message.text)
+    else:
+        bot.send_message(message.chat.id, 'Нельзя')
+
+
+def ghost3(message, some):
+    bot.send_message(some, message.text)
+
 
 # end of admin part
 
@@ -108,7 +143,7 @@ def help_user(message):
 # to do part
 
 def pg_open():
-    conn = psycopg2.connect(dbname=pg_dbname, user=pg_user, password=pg_password, host=host_pg)
+    conn = psycopg2.connect(dbname=pg_dbname, user=pg_user, password=pg_password, host=pg_host)
     cursor = conn.cursor()
     conn.autocommit = True
     return conn, cursor
@@ -275,14 +310,6 @@ def removing_todo(message):
 
 
 # useless part
-
-@bot.message_handler(commands=['check'])
-def checking(message):
-    if users.count_documents({'tele_id': message.from_user.id}) > 0:
-        bot.send_message(message.chat.id, 'Вы зарегистрированы')
-    else:
-        bot.send_message(message.chat.id, 'Необходимо зарегистрироваться')
-
 
 @bot.message_handler(commands=['bigger_number'])
 def game_1(message):
